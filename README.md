@@ -4,18 +4,18 @@ Netra is a real-time AI assistant that helps visually impaired users navigate su
 
 ---
 
-## 🚀 Features
+##  Features
 
-* 🎯 Real-time object detection using YOLOv8
-* 💬 Voice assistant with wake word ("Netra")
-* 💸 Currency detection using TensorFlow Lite model
-* 🧠 AI verification using Gemini API
-* 🗣️ Speech output using Windows TTS
-* 🌍 Scene understanding for navigation assistance
+* Real-time object detection using YOLOv8
+* Voice assistant with wake word ("Netra")
+* Currency detection using TensorFlow Lite model
+* AI verification using Gemini API
+* Speech output using Windows TTS
+* Scene understanding for navigation assistance
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 * Python, Flask
 * OpenCV
@@ -66,7 +66,7 @@ python app.py
 
 ---
 
-## 📦 Notes
+##  Notes
 
 * YOLO model (`yolov8n.pt`) will download automatically on first run
 * Project currently supports **Windows only** (due to TTS dependency)
@@ -74,7 +74,7 @@ python app.py
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create a new branch (`feature-name`)
@@ -83,7 +83,7 @@ python app.py
 
 ---
 
-## 📌 Future Improvements
+##  Future Improvements
 
 * Mobile app version
 * Offline support
@@ -92,7 +92,7 @@ python app.py
 
 ---
 
-## 👨‍💻 Author
+##  Author
 
 Sunil Singh
 
