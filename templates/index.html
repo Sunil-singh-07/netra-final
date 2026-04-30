@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Netra — AI Blind Assistance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:       #080810;
+  --bg2:      #0f0f1a;
+  --bg3:      #161625;
+  --bg4:      #1e1e30;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.13);
+  --text:     #e2e2f0;
+  --muted:    #60607a;
+  --green:    #00e5a0;
+  --green2:   #00b87a;
+  --gdim:     rgba(0,229,160,0.10);
+  --amber:    #ffb020;
+  --adim:     rgba(255,176,32,0.10);
+  --red:      #ff3d5a;
+  --rdim:     rgba(255,61,90,0.10);
+  --cyan:     #00c8f0;
+  --cdim:     rgba(0,200,240,0.10);
+  --purple:   #a78bfa;
+  --pdim:     rgba(167,139,250,0.10);
+}
+
+html,body{
+  height:100%;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Outfit',sans-serif;
+  overflow:hidden;
+}
+
+/* ── LAYOUT ──
+   Portrait mode: video fills center, UI wraps around it
+   max-width 480px keeps it phone-like on desktop too
+*/
+.app{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  max-width:480px;
+  margin:0 auto;
+  position:relative;
+  background:var(--bg);
+}
+
+/* ── HEADER ── */
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;
+  background:rgba(8,8,16,0.95);
+  backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  z-index:100;flex-shrink:0;
+}
+
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,var(--green),var(--cyan));
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;color:#080810;
+  letter-spacing:-1px;flex-shrink:0;
+}
+.logo-text h1{font-size:17px;font-weight:800;letter-spacing:-0.03em;color:var(--text)}
+.logo-text p{
+  font-family:'DM Mono',monospace;font-size:8px;
+  color:var(--muted);letter-spacing:0.12em;
+  text-transform:uppercase;margin-top:1px;
+}
+
+.header-right{display:flex;align-items:center;gap:8px}
+
+.mic-pill{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 11px;
+  background:var(--gdim);
+  border:1px solid rgba(0,229,160,0.25);
+  border-radius:20px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--green);font-weight:500;letter-spacing:0.06em;
+  cursor:pointer;transition:all 0.2s;
+}
+.mic-pill:hover{background:rgba(0,229,160,0.18)}
+.mic-pill.muted{
+  background:var(--rdim);
+  border-color:rgba(255,61,90,0.25);
+  color:var(--red);
+}
+.mic-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:currentColor;
+  animation:blink 1.4s ease-in-out infinite;
+}
+.mic-pill.muted .mic-dot{animation:none}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+
+.lang-btn{
+  font-family:'DM Mono',monospace;font-size:10px;font-weight:500;
+  padding:5px 11px;
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:20px;color:var(--cyan);cursor:pointer;
+  transition:all 0.2s;letter-spacing:0.05em;
+}
+.lang-btn:hover{background:var(--cdim);border-color:var(--cyan)}
+
+/* ── MAIN ── */
+main{
+  flex:1;overflow:hidden;
+  position:relative;display:flex;flex-direction:column;
+  min-height:0;
+}
+
+/* wake word hint banner */
+.wake-hint{
+  background:rgba(0,229,160,0.06);
+  border-bottom:1px solid rgba(0,229,160,0.12);
+  padding:5px 14px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:rgba(0,229,160,0.55);
+  letter-spacing:0.05em;text-align:center;
+  flex-shrink:0;
+}
+.wake-hint span{color:var(--green);font-weight:600;}
+
+/* ════════════════════════════
+   OBJECT MODE
+════════════════════════════ */
+#object-mode{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+
+/* ── PORTRAIT VIDEO WRAPPER ──
+   Maintains 9:16 aspect ratio (phone portrait)
+   Video is rotated in Python so it arrives already portrait
+*/
+.cam-wrap{
+  flex:1;
+  position:relative;
+  overflow:hidden;
+  background:#000;
+  min-height:0;
+
+  /* Center the portrait feed */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.cam-feed{
+  /* Portrait: height fills the panel, width is auto */
+  height:100%;
+  width:auto;
+  max-width:100%;
+  object-fit:contain;  /* show full frame, no crop */
+  display:block;
+  background:#000;
+}
+
+/* scan line */
+.scan-line{
+  position:absolute;left:0;right:0;height:1.5px;
+  background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  box-shadow:0 0 10px var(--cyan);
+  animation:scanmove 2.5s linear infinite;
+  pointer-events:none;opacity:0.4;
+}
+@keyframes scanmove{0%{top:0}100%{top:100%}}
+
+/* corner brackets */
+.corner{
+  position:absolute;width:18px;height:18px;
+  border-color:rgba(0,200,240,0.45);border-style:solid;
+  pointer-events:none;
+}
+.corner.tl{top:10px;left:10px;border-width:2px 0 0 2px;border-radius:2px 0 0 0}
+.corner.tr{top:10px;right:10px;border-width:2px 2px 0 0;border-radius:0 2px 0 0}
+.corner.bl{bottom:10px;left:10px;border-width:0 0 2px 2px;border-radius:0 0 0 2px}
+.corner.br{bottom:10px;right:10px;border-width:0 2px 2px 0;border-radius:0 0 2px 0}
+
+/* path label */
+.path-label{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  background:rgba(8,8,16,0.75);backdrop-filter:blur(8px);
+  border:1px solid var(--border2);border-radius:16px;
+  padding:4px 12px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--muted);pointer-events:none;white-space:nowrap;
+}
+
+/* alert badge */
+.alert-badge{
+  position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+  padding:6px 16px;border-radius:20px;
+  font-size:12px;font-weight:600;white-space:nowrap;
+  pointer-events:none;transition:all 0.3s;
+}
+.alert-badge.clear{
+  background:rgba(0,229,160,0.15);
+  border:1px solid rgba(0,229,160,0.3);
+  color:var(--green);
+}
+.alert-badge.warn{
+  background:rgba(255,176,32,0.15);
+  border:1px solid rgba(255,176,32,0.3);
+  color:var(--amber);
+}
+.alert-badge.danger{
+  background:rgba(255,61,90,0.15);
+  border:1px solid rgba(255,61,90,0.3);
+  color:var(--red);
+  animation:pulse-red 0.8s ease-in-out infinite;
+}
+@keyframes pulse-red{
+  0%,100%{box-shadow:0 0 0 0 rgba(255,61,90,0.3)}
+  50%{box-shadow:0 0 0 5px rgba(255,61,90,0)}
+}
+
+/* speaking indicator */
+.speaking-badge{
+  position:absolute;top:10px;right:10px;
+  background:rgba(167,139,250,0.15);
+  border:1px solid rgba(167,139,250,0.3);
+  border-radius:14px;padding:4px 10px;
+  font-family:'DM Mono',monospace;font-size:9px;
+  color:var(--purple);display:none;align-items:center;gap:5px;
+}
+.speaking-badge.active{display:flex}
+.speak-bar{
+  width:3px;border-radius:2px;background:var(--purple);
+  animation:speak-anim 0.6s ease-in-out infinite alternate;
+}
+.speak-bar:nth-child(2){animation-delay:0.1s;height:8px}
+.speak-bar:nth-child(3){animation-delay:0.2s;height:12px}
+.speak-bar:nth-child(4){animation-delay:0.3s;height:6px}
+.speak-bar:nth-child(5){animation-delay:0.15s;height:10px}
+@keyframes speak-anim{from{transform:scaleY(0.4)}to{transform:scaleY(1.2)}}
+
+/* conversation panel */
+.convo-panel{
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  padding:10px 14px;
+  max-height:120px;
+  overflow-y:auto;
+  flex-shrink:0;
+}
+.convo-panel::-webkit-scrollbar{width:3px}
+.convo-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.convo-empty{
+  display:flex;align-items:center;gap:8px;
+  color:var(--muted);font-size:11px;padding:4px 0;
+}
+.convo-empty-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--green);animation:blink 2s infinite;
+}
+
+.msg{display:flex;flex-direction:column;margin-bottom:8px;animation:msg-in 0.3s ease}
+@keyframes msg-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.msg-role{
+  font-family:'DM Mono',monospace;font-size:8px;
+  letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2px;
+}
+.msg.user .msg-role{color:var(--cyan)}
+.msg.netra .msg-role{color:var(--green)}
+.msg-text{
+  font-size:12px;line-height:1.5;
+  padding:6px 10px;border-radius:8px;max-width:95%;
+}
+.msg.user .msg-text{
+  background:var(--cdim);
+  border:1px solid rgba(0,200,240,0.15);
+  color:var(--text);align-self:flex-end;
+}
+.msg.netra .msg-text{
+  background:var(--gdim);
+  border:1px solid rgba(0,229,160,0.15);
+  color:var(--text);
+}
+
+/* scan button */
+.scan-btn-wrap{
+  padding:10px 14px;
+  background:var(--bg);
+  border-top:1px solid var(--border);
+  flex-shrink:0;
+}
+.scan-note-btn{
+  width:100%;padding:13px;
+  background:var(--text);color:var(--bg);
+  border:none;border-radius:12px;
+  font-family:'Outfit',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all 0.2s;letter-spacing:-0.01em;
+}
+.scan-note-btn:hover{transform:scale(1.02);box-shadow:0 6px 24px rgba(226,226,240,0.12)}
+.scan-note-btn:active{transform:scale(0.98)}
+
+/* ════════════════════════════
+   SCAN MODE
+════════════════════════════ */
+#scan-mode{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0}
+
+.scan-cam-wrap{
+  flex:1;position:relative;overflow:hidden;
+  background:#000;min-height:0;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* portrait for scan too */
+.scan-live, #captured-img{
+  height:100%;width:auto;
+  max-width:100%;object-fit:contain;
+  display:block;background:#000;
+}
+#captured-img{display:none}
+
+.scan-overlay{
+  position:absolute;inset:0;pointer-events:none;
+  display:none;align-items:center;justify-content:center;
+}
+.scan-overlay.active{display:flex;background:rgba(0,229,160,0.05)}
+.scan-beam{
+  position:absolute;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,var(--green),transparent);
+  box-shadow:0 0 20px rgba(0,229,160,0.8);
+  animation:beam 1.6s ease-in-out infinite;
+}
+@keyframes beam{0%{top:0}100%{top:100%}}
+.scan-label{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  background:rgba(0,229,160,0.12);
+  border:1px solid rgba(0,229,160,0.35);
+  border-radius:16px;padding:6px 18px;
+  font-family:'DM Mono',monospace;font-size:11px;
+  color:var(--green);font-weight:500;
+  letter-spacing:0.08em;white-space:nowrap;
+}
+
+.scan-corners .corner{border-color:rgba(0,229,160,0.55);width:24px;height:24px}
+
+.result-card{
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  padding:14px;flex-shrink:0;display:none;
+  animation:result-in 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+.result-card.show{display:block}
+@keyframes result-in{
+  from{opacity:0;transform:translateY(16px) scale(0.97)}
+  to{opacity:1;transform:none}
+}
+.result-inner{
+  background:var(--bg3);border:1px solid var(--border2);
+  border-radius:14px;padding:14px;
+}
+.result-row1{display:flex;justify-content:space-between;
+  align-items:flex-start;margin-bottom:10px}
+.rl{
+  font-family:'DM Mono',monospace;font-size:8px;color:var(--muted);
+  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:3px;
+}
+.result-denom{font-size:30px;font-weight:800;color:var(--green);
+  letter-spacing:-0.03em;line-height:1}
+.result-denom.unknown{font-size:16px;color:var(--muted);font-weight:400}
+.result-conf{font-size:18px;font-weight:700;color:var(--text);text-align:right}
+.result-divider{height:1px;background:var(--border);margin:10px 0}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.badge{
+  display:flex;align-items:center;gap:4px;padding:3px 9px;
+  border-radius:14px;font-size:10px;font-weight:600;
+  font-family:'DM Mono',monospace;
+}
+.badge.auth{background:var(--gdim);color:var(--green);border:1px solid rgba(0,229,160,0.25)}
+.badge.warn{background:var(--adim);color:var(--amber);border:1px solid rgba(255,176,32,0.25)}
+.badge.agree{background:var(--cdim);color:var(--cyan);border:1px solid rgba(0,200,240,0.25)}
+.badge.correct{background:var(--pdim);color:var(--purple);border:1px solid rgba(167,139,250,0.25)}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:currentColor}
+.result-details{font-size:11px;color:var(--muted);line-height:1.5;font-style:italic}
+.result-disc{
+  font-family:'DM Mono',monospace;font-size:8px;
+  color:var(--muted);text-align:center;margin-top:8px;opacity:0.5;
+}
+.fake-warn{
+  background:var(--rdim);border:1px solid rgba(255,61,90,0.3);
+  border-radius:8px;padding:8px 12px;
+  display:flex;align-items:center;gap:8px;
+  font-size:11px;font-weight:600;color:var(--red);margin-bottom:8px;
+}
+
+.scan-actions{
+  display:flex;gap:8px;padding:10px 14px;
+  background:var(--bg);border-top:1px solid var(--border);flex-shrink:0;
+}
+.btn-scan{
+  flex:1;padding:12px;
+  background:var(--text);color:var(--bg);
+  border:none;border-radius:11px;
+  font-family:'Outfit',sans-serif;font-size:13px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:7px;transition:all 0.2s;
+}
+.btn-scan:hover{transform:scale(1.02)}
+.btn-scan:active{transform:scale(0.98)}
+.btn-scan:disabled{opacity:0.45;cursor:not-allowed;transform:none}
+.btn-return{
+  padding:12px 14px;
+  background:var(--bg3);color:var(--cyan);
+  border:1px solid rgba(0,200,240,0.25);border-radius:11px;
+  font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  gap:5px;transition:all 0.2s;white-space:nowrap;
+}
+.btn-return:hover{background:var(--cdim);border-color:var(--cyan)}
+
+.spinner{
+  width:14px;height:14px;
+  border:2px solid rgba(0,0,0,0.2);
+  border-top-color:currentColor;
+  border-radius:50%;
+  animation:spin 0.65s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+svg{display:block;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-mark">N</div>
+      <div class="logo-text">
+        <h1>Netra</h1>
+        <p>AI Blind Assistance · नेत्र</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="mic-pill" id="mic-pill" onclick="toggleMic()">
+        <span class="mic-dot"></span>
+        <span id="mic-label">LISTENING</span>
+      </div>
+      <button class="lang-btn" id="lang-btn" onclick="toggleLang()">EN</button>
+    </div>
+  </header>
+
+  <!-- Wake word reminder -->
+  <div class="wake-hint">
+    Say <span>NETRA</span> before every command
+  </div>
+
+  <main>
+
+    <!-- ════ OBJECT MODE ════ -->
+    <div id="object-mode">
+
+      <div class="cam-wrap">
+        <!--
+          VIDEO FEED
+          Python rotates the frame 90° before sending,
+          so the MJPEG stream already arrives in portrait.
+          height:100% + width:auto = portrait fill.
+        -->
+        <img class="cam-feed" src="/video_feed" alt="Camera Feed">
+        <div class="scan-line"></div>
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="path-label">Watching your path</div>
+        <div class="alert-badge clear" id="alert-badge">Path clear</div>
+        <div class="speaking-badge" id="speaking-badge">
+          <div class="speak-bar" style="height:6px"></div>
+          <div class="speak-bar"></div>
+          <div class="speak-bar"></div>
+          <div class="speak-bar"></div>
+          <div class="speak-bar" style="height:7px"></div>
+          <span style="font-family:'DM Mono',monospace;font-size:9px;
+            color:var(--purple);margin-left:2px">Speaking</span>
+        </div>
+      </div>
+
+
+
+
+
+    </div><!-- /object-mode -->
+
+    <!-- ════ SCAN MODE ════ -->
+    <div id="scan-mode">
+
+      <div class="scan-cam-wrap">
+        <img class="scan-live" src="/video_feed" id="scan-live" alt="">
+        <img id="captured-img" alt="">
+        <div class="scan-overlay" id="scan-overlay">
+          <div class="scan-beam"></div>
+          <div class="scan-label" id="scan-label">SCANNING...</div>
+        </div>
+        <div class="scan-corners">
+          <div class="corner tl"></div>
+          <div class="corner tr"></div>
+          <div class="corner bl"></div>
+          <div class="corner br"></div>
+        </div>
+      </div>
+
+      <div class="result-card" id="result-card">
+        <div class="result-inner">
+          <div id="fake-warn" class="fake-warn" style="display:none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0
+                1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Warning: Note may not be genuine
+          </div>
+          <div class="result-row1">
+            <div>
+              <div class="rl">Detected Note</div>
+              <div class="result-denom" id="r-denom">—</div>
+            </div>
+            <div>
+              <div class="rl" style="text-align:right">Confidence</div>
+              <div class="result-conf" id="r-conf">—</div>
+            </div>
+          </div>
+          <div class="result-divider"></div>
+          <div class="badges" id="r-badges"></div>
+          <div class="result-details" id="r-details"></div>
+          <div class="result-disc">
+            AI analysis for guidance only. Always verify manually.
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-actions">
+        <button class="btn-scan" id="btn-scan" onclick="doScan()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+            <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+            <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+            <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+            <line x1="7" y1="12" x2="17" y2="12"/>
+          </svg>
+          Scan Note
+        </button>
+        <button class="btn-return" onclick="exitScan()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Return
+        </button>
+      </div>
+
+    </div><!-- /scan-mode -->
+
+  </main>
+</div>
+
+<script>
+let lang     = 'en';
+let micOn    = true;
+let scanning = false;
+
+// ── Poll status + conversation every second ──
+function pollStatus() {
+  fetch('/status')
+    .then(r => r.json())
+    .then(s => {
+      const sb = document.getElementById('speaking-badge');
+      s.speaking ? sb.classList.add('active') : sb.classList.remove('active');
+    })
+    .catch(() => {});
+
+  fetch('/conversation')
+    .then(r => r.json())
+    .then(renderConvo)
+    .catch(() => {});
+}
+
+function renderConvo(msgs) {
+  const panel = document.getElementById('convo-panel');
+  const empty = document.getElementById('convo-empty');
+  if (!msgs || msgs.length === 0) {
+    if (empty) empty.style.display = 'flex';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (panel.dataset.count == msgs.length) return;
+  panel.dataset.count = msgs.length;
+
+  const emptyEl = panel.querySelector('.convo-empty');
+  panel.innerHTML = '';
+  if (emptyEl) { emptyEl.style.display='none'; panel.appendChild(emptyEl); }
+
+  msgs.forEach(m => {
+    const div = document.createElement('div');
+    div.className = `msg ${m.role}`;
+    div.innerHTML = `
+      <div class="msg-role">${m.role==='user'?'You':'Netra'} · ${m.time}</div>
+      <div class="msg-text">${m.text}</div>`;
+    panel.appendChild(div);
+  });
+  panel.scrollTop = panel.scrollHeight;
+}
+
+// ── Language toggle ──
+function toggleLang() {
+  lang = lang === 'en' ? 'hi' : 'en';
+  document.getElementById('lang-btn').textContent = lang === 'en' ? 'EN' : 'HI';
+  fetch('/set_language', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({language:lang})
+  });
+}
+
+// ── Mic toggle ──
+function toggleMic() {
+  micOn = !micOn;
+  const pill  = document.getElementById('mic-pill');
+  const label = document.getElementById('mic-label');
+  if (micOn) {
+    pill.classList.remove('muted');
+    label.textContent = 'LISTENING';
+  } else {
+    pill.classList.add('muted');
+    label.textContent = 'MUTED';
+  }
+}
+
+// ── Enter scan mode ──
+function enterScan() {
+  document.getElementById('object-mode').style.display = 'none';
+  document.getElementById('scan-mode').style.display   = 'flex';
+  fetch('/set_mode',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({mode:'scan'})});
+  resetScanUI();
+}
+
+function exitScan() {
+  document.getElementById('scan-mode').style.display   = 'none';
+  document.getElementById('object-mode').style.display = 'flex';
+  fetch('/set_mode',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({mode:'object'})});
+}
+
+function resetScanUI() {
+  document.getElementById('scan-live').style.display    = 'block';
+  document.getElementById('captured-img').style.display = 'none';
+  document.getElementById('scan-overlay').classList.remove('active');
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('fake-warn').style.display    = 'none';
+  const btn = document.getElementById('btn-scan');
+  btn.disabled = false;
+  btn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+      <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+      <line x1="7" y1="12" x2="17" y2="12"/>
+    </svg>
+    Scan Note`;
+}
+
+// ── Scan currency ──
+async function doScan() {
+  if (scanning) return;
+  scanning = true;
+  document.getElementById('result-card').classList.remove('show');
+  document.getElementById('fake-warn').style.display = 'none';
+
+  try {
+    const cap = await fetch('/capture');
+    const cd  = await cap.json();
+    if (cd.error) { scanning = false; return; }
+
+    // show captured frame
+    const img = document.getElementById('captured-img');
+    img.src = 'data:image/jpeg;base64,' + cd.image;
+    img.style.display = 'block';
+    document.getElementById('scan-live').style.display = 'none';
+
+    // scanning animation
+    document.getElementById('scan-overlay').classList.add('active');
+    document.getElementById('scan-label').textContent =
+      lang === 'en' ? 'SCANNING...' : 'SCAN HO RAHA HAI...';
+
+    const btn = document.getElementById('btn-scan');
+    btn.disabled = true;
+    btn.innerHTML = `<div class="spinner"></div>
+      ${lang==='en'?'Analyzing...':'Vishleshan...'}`;
+
+    const res  = await fetch('/scan', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({image:cd.image, language:lang})
+    });
+    const data = await res.json();
+    showResult(data);
+  } catch(e) {
+    console.error(e);
+    document.getElementById('scan-overlay').classList.remove('active');
+  }
+  scanning = false;
+}
+
+function showResult(data) {
+  document.getElementById('scan-overlay').classList.remove('active');
+
+  const denom  = data.denomination;
+  const conf   = data.confidence;
+  const auth   = data.isAuthentic;
+  const agreed = data.agreed;
+  const side   = data.side;
+  const detail = data.details;
+
+  const de = document.getElementById('r-denom');
+  if (!denom || denom === 'unknown') {
+    de.textContent = lang==='en' ? 'Not detected' : 'Nahi mila';
+    de.className   = 'result-denom unknown';
+  } else {
+    de.textContent = `Rs. ${denom}`;
+    de.className   = 'result-denom';
+  }
+
+  document.getElementById('r-conf').textContent = conf || '—';
+  document.getElementById('fake-warn').style.display =
+    (!auth && denom && denom !== 'unknown') ? 'flex' : 'none';
+
+  let badges = '';
+  if (denom && denom !== 'unknown') {
+    badges += auth
+      ? `<span class="badge auth"><span class="badge-dot"></span>
+           ${lang==='en'?'Likely Authentic':'Asli Lagta Hai'}</span>`
+      : `<span class="badge warn"><span class="badge-dot"></span>
+           ${lang==='en'?'Verify Manually':'Jaanch Karein'}</span>`;
+    badges += agreed
+      ? `<span class="badge agree"><span class="badge-dot"></span>
+           ${lang==='en'?'Both Models Agreed':'Dono Sahmat'}</span>`
+      : `<span class="badge correct"><span class="badge-dot"></span>
+           ${lang==='en'?'AI Corrected':'AI ne Sudha'}</span>`;
+    if (side && side !== 'unknown') {
+      badges += `<span class="badge agree"><span class="badge-dot"></span>
+        ${side==='front'
+          ? (lang==='en'?'Front Side':'Aage ki Taraf')
+          : (lang==='en'?'Back Side' :'Peeche ki Taraf')}</span>`;
+    }
+  }
+  document.getElementById('r-badges').innerHTML  = badges;
+  document.getElementById('r-details').textContent = detail ? `"${detail}"` : '';
+  document.getElementById('result-card').classList.add('show');
+
+  const btn = document.getElementById('btn-scan');
+  btn.disabled = false;
+  btn.innerHTML = `
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+      <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+      <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+      <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+      <line x1="7" y1="12" x2="17" y2="12"/>
+    </svg>
+    ${lang==='en'?'Scan Again':'Phir Scan Karein'}`;
+}
+
+// ── Keyboard shortcuts ──
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') {
+    e.preventDefault();
+    const sm = document.getElementById('scan-mode');
+    if (sm.style.display !== 'none') doScan();
+    else enterScan();
+  }
+  if (e.code === 'Escape') exitScan();
+});
+
+// ── Start polling ──
+setInterval(pollStatus, 1000);
+pollStatus();
+</script>
+</body>
+</html>
