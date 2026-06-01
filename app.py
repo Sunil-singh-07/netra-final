@@ -22,8 +22,8 @@ load_dotenv()
 # ══════════════════════════════════════════
 #   CONFIG
 # ══════════════════════════════════════════
-MODEL_PATH     = r"C:\AI Model\currency_model_v5.tflite"
-LABELS_PATH    = r"C:\AI Model\currency_class_map3.json"
+MODEL_PATH     = r"C:\netra_final\netra-final\currency_model_v5.tflite"
+LABELS_PATH    = r"C:\netra_final\netra-final\currency_model_v5_class_map.json"
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY   = os.getenv("GROQ_API_KEY")
 
